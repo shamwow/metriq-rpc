@@ -8,14 +8,16 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
-	abciclient "github.com/tendermint/tendermint/abci/client"
 	abci "github.com/tendermint/tendermint/abci/types"
 	cfg "github.com/tendermint/tendermint/config"
+	"github.com/tendermint/tendermint/libs/cli/flags"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/service"
 	nm "github.com/tendermint/tendermint/node"
+	"github.com/tendermint/tendermint/p2p"
+	"github.com/tendermint/tendermint/privval"
+	"github.com/tendermint/tendermint/proxy"
 )
 
 var configFile string
@@ -44,7 +46,6 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error stopping tendermint: %v", err)
 		}
-		node.Wait()
 	}()
 
 	c := make(chan os.Signal, 1)
@@ -54,7 +55,7 @@ func main() {
 
 func newTendermint(app abci.Application, configFile string) (service.Service, error) {
 	// read config
-	config := cfg.DefaultValidatorConfig()
+	config := cfg.DefaultConfig()
 	config.RootDir = filepath.Dir(filepath.Dir(configFile))
 	viper.SetConfigFile(configFile)
 	if err := viper.ReadInConfig(); err != nil {
@@ -68,10 +69,35 @@ func newTendermint(app abci.Application, configFile string) (service.Service, er
 	}
 
 	// create logger
-	logger := log.MustNewDefaultLogger(log.LogFormatJSON, zerolog.LevelDebugValue, true)
+	logger := log.NewTMLogger(log.NewSyncWriter(os.Stdout))
+	var err error
+	logger, err = flags.ParseLogLevel(config.LogLevel, logger, cfg.DefaultLogLevel)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse log level: %w", err)
+	}
+
+	// read private validator
+	pv := privval.LoadFilePV(
+		config.PrivValidatorKeyFile(),
+		config.PrivValidatorStateFile(),
+	)
+
+	// read node key
+	nodeKey, err := p2p.LoadNodeKey(config.NodeKeyFile())
+	if err != nil {
+		return nil, fmt.Errorf("failed to load node's key: %w", err)
+	}
 
 	// create node
-	node, err := nm.New(config, logger, abciclient.NewLocalCreator(app), nil)
+	node, err := nm.NewNode(
+		config,
+		pv,
+		nodeKey,
+		proxy.NewLocalClientCreator(app),
+		nm.DefaultGenesisDocProviderFunc(config),
+		nm.DefaultDBProvider,
+		nm.DefaultMetricsProvider(config.Instrumentation),
+		logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new Tendermint node: %w", err)
 	}

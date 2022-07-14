@@ -12,6 +12,10 @@ func NewMetriqRPCApp() *MetriqRPCApp {
 	return &MetriqRPCApp{}
 }
 
+func (MetriqRPCApp) SetOption(req abcitypes.RequestSetOption) abcitypes.ResponseSetOption {
+	return abcitypes.ResponseSetOption{}
+}
+
 func (MetriqRPCApp) Info(req abcitypes.RequestInfo) abcitypes.ResponseInfo {
 	return abcitypes.ResponseInfo{}
 }
