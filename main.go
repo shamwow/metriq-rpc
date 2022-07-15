@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/viper"
-	abci "github.com/tendermint/tendermint/abci/types"
 	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/cli/flags"
 	"github.com/tendermint/tendermint/libs/log"
@@ -17,7 +17,6 @@ import (
 	nm "github.com/tendermint/tendermint/node"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/privval"
-	"github.com/tendermint/tendermint/proxy"
 )
 
 var configFile string
@@ -27,11 +26,9 @@ func init() {
 }
 
 func main() {
-	app := NewMetriqRPCApp()
-
 	flag.Parse()
 
-	node, err := newTendermint(app, configFile)
+	node, err := newTendermint(configFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error starting tendermint: %v", err)
 		os.Exit(2)
@@ -46,6 +43,7 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error stopping tendermint: %v", err)
 		}
+		<-node.Quit()
 	}()
 
 	c := make(chan os.Signal, 1)
@@ -53,10 +51,10 @@ func main() {
 	<-c
 }
 
-func newTendermint(app abci.Application, configFile string) (service.Service, error) {
+func newTendermint(configFile string) (service.Service, error) {
 	// read config
 	config := cfg.DefaultConfig()
-	config.RootDir = filepath.Dir(filepath.Dir(configFile))
+	config.SetRoot(filepath.Dir(filepath.Dir(configFile)))
 	viper.SetConfigFile(configFile)
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("viper failed to read config file: %w", err)
@@ -73,10 +71,11 @@ func newTendermint(app abci.Application, configFile string) (service.Service, er
 	var err error
 	logger, err = flags.ParseLogLevel(config.LogLevel, logger, cfg.DefaultLogLevel)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse log level: %w", err)
+		return nil, errors.Wrap(err, "failed to parse log level")
 	}
 
 	// read private validator
+	fmt.Println(config.PrivValidatorKeyFile(), config.PrivValidatorStateFile(), config.NodeKeyFile(), config.P2P.AddrBookFile())
 	pv := privval.LoadFilePV(
 		config.PrivValidatorKeyFile(),
 		config.PrivValidatorStateFile(),
@@ -85,21 +84,22 @@ func newTendermint(app abci.Application, configFile string) (service.Service, er
 	// read node key
 	nodeKey, err := p2p.LoadNodeKey(config.NodeKeyFile())
 	if err != nil {
-		return nil, fmt.Errorf("failed to load node's key: %w", err)
+		return nil, errors.Wrap(err, "failed to load node's key")
 	}
 
 	// create node
+	app := NewMetriqRPCApp()
 	node, err := nm.NewNode(
 		config,
 		pv,
 		nodeKey,
-		proxy.NewLocalClientCreator(app),
+		NewLocalClientCreator(logger, app),
 		nm.DefaultGenesisDocProviderFunc(config),
 		nm.DefaultDBProvider,
 		nm.DefaultMetricsProvider(config.Instrumentation),
 		logger)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new Tendermint node: %w", err)
+		return nil, errors.Wrap(err, "failed to create new Tendermint node")
 	}
 
 	return node, nil
