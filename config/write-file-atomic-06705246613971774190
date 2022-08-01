@@ -15,9 +15,9 @@
 			"buckets": [
 				0
 			],
-			"attempts": 9,
+			"attempts": 10,
 			"bucket_type": 2,
-			"last_attempt": "2022-07-15T15:49:55.683153-04:00",
+			"last_attempt": "2022-07-15T15:53:40.449628-04:00",
 			"last_success": "0001-01-01T00:00:00Z",
 			"last_ban_time": "0001-01-01T00:00:00Z"
 		}

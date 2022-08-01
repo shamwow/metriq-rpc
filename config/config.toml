@@ -47,7 +47,7 @@ db_backend = "goleveldb"
 db_dir = "data"
 
 # Output level for logging, including package level options
-log_level = "info"
+log_level = "debug"
 
 # Output format: 'plain' (colored text) or 'json'
 log_format = "plain"
@@ -222,7 +222,7 @@ addr_book_file = "config/addrbook.json"
 
 # Set true for strict address routability rules
 # Set false for private or local networks
-addr_book_strict = true
+addr_book_strict = false
 
 # Maximum number of inbound peers
 max_num_inbound_peers = 40
