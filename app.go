@@ -76,6 +76,10 @@ func (*MetriqRPCApp) Query(req abcitypes.RequestQuery) abcitypes.ResponseQuery {
 func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.ResponseInitChain {
 	a.logger.Info("InitChain")
 
+	interfaceRegistry := types.NewInterfaceRegistry()
+	appCodec := codec.NewProtoCodec(interfaceRegistry)
+	legacyCodec := codec.NewLegacyAmino()
+
 	// Unmarshal app state.
 	var appState map[string]json.RawMessage
 	if err := tmjson.Unmarshal(req.AppStateBytes, &appState); err != nil {
@@ -84,15 +88,13 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 
 	// Unmarshal genutils state.
 	var genesisState genutiltypes.GenesisState
-	if err := tmjson.Unmarshal(appState[genutiltypes.ModuleName], &genesisState); err != nil {
+
+	if err := appCodec.Unmarshal(appState[genutiltypes.ModuleName], &genesisState); err != nil {
 		panic(fmt.Sprintf("%+v", errors.Wrap(err, "couldn't unmarshal genesisstate")))
 	}
 
 	fmt.Println(genesisState)
 
-	interfaceRegistry := types.NewInterfaceRegistry()
-	appCodec := codec.NewProtoCodec(interfaceRegistry)
-	legacyCodec := codec.NewLegacyAmino()
 	keys := sdktypes.NewKVStoreKeys(
 		paramstypes.StoreKey, stakingtypes.StoreKey, authtypes.StoreKey, banktypes.StoreKey)
 	tkeys := sdktypes.NewTransientStoreKeys(paramstypes.TStoreKey)
