@@ -120,7 +120,7 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 	ms := store.NewCommitMultiStore(a.db)
 	marshaler := codec.NewProtoCodec(interfaceRegistry)
 	txCfg := tx.NewTxConfig(marshaler, tx.DefaultSignModes)
-	fmt.Println("Genesis State", genesisState.GetGenTxs())
+	fmt.Println("Genesis State g", genesisState.GetGenTxs())
 	validators, err := genutil.InitGenesis(
 		sdktypes.NewContext(ms, initHeader, false, a.logger),
 		sk,
