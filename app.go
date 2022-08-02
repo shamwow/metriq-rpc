@@ -100,14 +100,13 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 
 	keys := sdktypes.NewKVStoreKeys(
 		paramstypes.StoreKey, stakingtypes.StoreKey, authtypes.StoreKey, banktypes.StoreKey)
-	fmt.Println(keys)
 	tkeys := sdktypes.NewTransientStoreKeys(paramstypes.TStoreKey)
 	pk := paramskeeper.NewKeeper(appCodec, legacyCodec, keys[paramstypes.StoreKey], tkeys[paramstypes.TStoreKey])
 	ms := store.NewCommitMultiStore(a.db)
-	ms.MountStoreWithDB(keys[authtypes.StoreKey], sdktypes.StoreTypeDB, nil)
-	ms.MountStoreWithDB(keys[banktypes.StoreKey], sdktypes.StoreTypeDB, nil)
-	ms.MountStoreWithDB(keys[stakingtypes.StoreKey], sdktypes.StoreTypeDB, nil)
-	ms.MountStoreWithDB(keys[paramstypes.StoreKey], sdktypes.StoreTypeDB, nil)
+	ms.MountStoreWithDB(keys[authtypes.StoreKey], sdktypes.StoreTypeIAVL, nil)
+	ms.MountStoreWithDB(keys[banktypes.StoreKey], sdktypes.StoreTypeIAVL, nil)
+	ms.MountStoreWithDB(keys[stakingtypes.StoreKey], sdktypes.StoreTypeIAVL, nil)
+	ms.MountStoreWithDB(keys[paramstypes.StoreKey], sdktypes.StoreTypeIAVL, nil)
 
 	blockedAddrs := make(map[string]bool)
 	for key := range maccPerms {
