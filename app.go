@@ -81,6 +81,7 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 	if err := tmjson.Unmarshal(req.AppStateBytes, &appState); err != nil {
 		panic(fmt.Sprintf("%+v", errors.Wrap(err, "couldn't unmarshal appstate")))
 	}
+	fmt.Println(appState)
 
 	// Unmarshal genutils state.
 	var genesisState genutiltypes.GenesisState
