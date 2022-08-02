@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -76,10 +77,15 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 	a.logger.Info("InitChain")
 
 	// Unmarshal app state.
+	var appState map[string]json.RawMessage
+	if err := tmjson.Unmarshal(req.AppStateBytes, &appState); err != nil {
+		panic(fmt.Sprintf("%+v", errors.Wrap(err, "couldn't unmarshal appstate")))
+	}
+
+	// Unmarshal genutils state.
 	var genesisState genutiltypes.GenesisState
-	if err := tmjson.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
-		// TODO: do something better with error.
-		panic(err)
+	if err := tmjson.Unmarshal(appState[genutiltypes.ModuleName], &genesisState); err != nil {
+		panic(fmt.Sprintf("%+v", errors.Wrap(err, "couldn't unmarshal genesisstate")))
 	}
 
 	interfaceRegistry := types.NewInterfaceRegistry()
@@ -120,7 +126,7 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 	ms := store.NewCommitMultiStore(a.db)
 	marshaler := codec.NewProtoCodec(interfaceRegistry)
 	txCfg := tx.NewTxConfig(marshaler, tx.DefaultSignModes)
-	fmt.Println("Genesis State g", genesisState.GetGenTxs())
+	fmt.Println("Genesis State", genesisState.GetGenTxs())
 	validators, err := genutil.InitGenesis(
 		sdktypes.NewContext(ms, initHeader, false, a.logger),
 		sk,
