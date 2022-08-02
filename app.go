@@ -120,6 +120,7 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 	ms := store.NewCommitMultiStore(a.db)
 	marshaler := codec.NewProtoCodec(interfaceRegistry)
 	txCfg := tx.NewTxConfig(marshaler, tx.DefaultSignModes)
+	fmt.Println("Genesis State", genesisState.GetGenTxs())
 	validators, err := genutil.InitGenesis(
 		sdktypes.NewContext(ms, initHeader, false, a.logger),
 		sk,
@@ -130,6 +131,8 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 	if err != nil {
 		panic(fmt.Sprintf("+%v", errors.Wrap(err, "couldn't init genesis")))
 	}
+
+	fmt.Println("Validators", validators)
 
 	return abcitypes.ResponseInitChain{
 		Validators: validators,
