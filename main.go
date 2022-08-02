@@ -17,6 +17,7 @@ import (
 	nm "github.com/tendermint/tendermint/node"
 	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/privval"
+	dbm "github.com/tendermint/tm-db"
 )
 
 var configFile string
@@ -87,15 +88,25 @@ func newTendermint(configFile string) (service.Service, error) {
 		return nil, errors.Wrap(err, "failed to load node's key")
 	}
 
+	// Create db.
+	dbType := dbm.BackendType(config.DBBackend)
+	db, err := dbm.NewDB("db", dbType, config.DBDir())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create a db")
+	}
+	dbProvider := func(ctx *nm.DBContext) (dbm.DB, error) {
+		return db, nil
+	}
+
 	// create node
-	app := NewMetriqRPCApp()
+	app := NewMetriqRPCApp(db, logger)
 	node, err := nm.NewNode(
 		config,
 		pv,
 		nodeKey,
 		NewLocalClientCreator(logger, app),
 		nm.DefaultGenesisDocProviderFunc(config),
-		nm.DefaultDBProvider,
+		dbProvider,
 		nm.DefaultMetricsProvider(config.Instrumentation),
 		logger)
 	if err != nil {

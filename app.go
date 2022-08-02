@@ -1,15 +1,43 @@
 package main
 
 import (
+	"fmt"
+
+	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/store"
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
+	"github.com/cosmos/cosmos-sdk/x/auth/tx"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/cosmos-sdk/x/genutil"
+	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
+	paramskeeper "github.com/cosmos/cosmos-sdk/x/params/keeper"
+	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
+	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	"github.com/pkg/errors"
 	abcitypes "github.com/tendermint/tendermint/abci/types"
+	tmjson "github.com/tendermint/tendermint/libs/json"
+	"github.com/tendermint/tendermint/libs/log"
+	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+	dbm "github.com/tendermint/tm-db"
 )
 
-type MetriqRPCApp struct{}
+type MetriqRPCApp struct {
+	logger log.Logger
+	db     dbm.DB
+}
 
 var _ abcitypes.Application = (*MetriqRPCApp)(nil)
 
-func NewMetriqRPCApp() *MetriqRPCApp {
-	return &MetriqRPCApp{}
+func NewMetriqRPCApp(db dbm.DB, logger log.Logger) *MetriqRPCApp {
+	return &MetriqRPCApp{
+		logger: logger,
+		db:     db,
+	}
 }
 
 func (*MetriqRPCApp) SetOption(req abcitypes.RequestSetOption) abcitypes.ResponseSetOption {
@@ -20,7 +48,8 @@ func (*MetriqRPCApp) Info(req abcitypes.RequestInfo) abcitypes.ResponseInfo {
 	return abcitypes.ResponseInfo{}
 }
 
-func (*MetriqRPCApp) DeliverTx(req abcitypes.RequestDeliverTx) abcitypes.ResponseDeliverTx {
+func (a *MetriqRPCApp) DeliverTx(req abcitypes.RequestDeliverTx) abcitypes.ResponseDeliverTx {
+	a.logger.Info("DeliverTx")
 	return abcitypes.ResponseDeliverTx{Code: 0}
 }
 
@@ -37,8 +66,68 @@ func (*MetriqRPCApp) Query(req abcitypes.RequestQuery) abcitypes.ResponseQuery {
 	return abcitypes.ResponseQuery{Code: 0}
 }
 
-func (*MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.ResponseInitChain {
-	return abcitypes.ResponseInitChain{}
+func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.ResponseInitChain {
+	a.logger.Info("InitChain")
+
+	// Unmarshal app state.
+	var genesisState genutiltypes.GenesisState
+	if err := tmjson.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
+		// TODO: do something better with error.
+		panic(err)
+	}
+
+	interfaceRegistry := types.NewInterfaceRegistry()
+	appCodec := codec.NewProtoCodec(interfaceRegistry)
+	legacyCodec := codec.NewLegacyAmino()
+	keys := sdktypes.NewKVStoreKeys(
+		paramstypes.StoreKey, stakingtypes.StoreKey, authtypes.StoreKey, banktypes.StoreKey)
+	tkeys := sdktypes.NewTransientStoreKeys(paramstypes.TStoreKey)
+	pk := paramskeeper.NewKeeper(appCodec, legacyCodec, keys[paramstypes.StoreKey], tkeys[paramstypes.TStoreKey])
+
+	ak := authkeeper.NewAccountKeeper(
+		appCodec,
+		keys[authtypes.StoreKey],
+		getSubspace(&pk, authtypes.ModuleName),
+		authtypes.ProtoBaseAccount,
+		nil, // TODO: check this.
+	)
+	bk := bankkeeper.NewBaseKeeper(
+		appCodec,
+		keys[banktypes.StoreKey],
+		ak,
+		getSubspace(&pk, banktypes.ModuleName),
+		nil, // keep in sync with macaddrs from above account keeper init.
+	)
+	sk := stakingkeeper.NewKeeper(
+		appCodec,
+		keys[stakingtypes.StoreKey],
+		ak,
+		bk,
+		getSubspace(&pk, stakingtypes.ModuleName),
+	)
+	initHeader := tmproto.Header{ChainID: req.ChainId, Time: req.Time}
+	ms := store.NewCommitMultiStore(a.db)
+	marshaler := codec.NewProtoCodec(interfaceRegistry)
+	txCfg := tx.NewTxConfig(marshaler, tx.DefaultSignModes)
+	validators, err := genutil.InitGenesis(
+		sdktypes.NewContext(ms, initHeader, false, a.logger),
+		sk,
+		a.DeliverTx,
+		genesisState,
+		txCfg,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("+%v", errors.Wrap(err, "couldn't init genesis")))
+	}
+
+	return abcitypes.ResponseInitChain{
+		Validators: validators,
+	}
+}
+
+func getSubspace(pk *paramskeeper.Keeper, s string) paramstypes.Subspace {
+	space, _ := pk.GetSubspace(stakingtypes.ModuleName)
+	return space
 }
 
 func (*MetriqRPCApp) BeginBlock(req abcitypes.RequestBeginBlock) abcitypes.ResponseBeginBlock {
