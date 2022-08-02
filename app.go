@@ -102,6 +102,11 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 		paramstypes.StoreKey, stakingtypes.StoreKey, authtypes.StoreKey, banktypes.StoreKey)
 	tkeys := sdktypes.NewTransientStoreKeys(paramstypes.TStoreKey)
 	pk := paramskeeper.NewKeeper(appCodec, legacyCodec, keys[paramstypes.StoreKey], tkeys[paramstypes.TStoreKey])
+	ms := store.NewCommitMultiStore(a.db)
+	ms.MountStoreWithDB(keys[authtypes.StoreKey], sdktypes.StoreTypeDB, a.db)
+	ms.MountStoreWithDB(keys[banktypes.StoreKey], sdktypes.StoreTypeDB, a.db)
+	ms.MountStoreWithDB(keys[stakingtypes.StoreKey], sdktypes.StoreTypeDB, a.db)
+	ms.MountStoreWithDB(keys[paramstypes.StoreKey], sdktypes.StoreTypeDB, a.db)
 
 	blockedAddrs := make(map[string]bool)
 	for key := range maccPerms {
@@ -114,7 +119,6 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 		authtypes.ProtoBaseAccount,
 		maccPerms, // TODO: check this.
 	)
-
 	bk := bankkeeper.NewBaseKeeper(
 		appCodec,
 		keys[banktypes.StoreKey],
@@ -130,10 +134,9 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 		pk.Subspace(stakingtypes.ModuleName),
 	)
 	initHeader := tmproto.Header{ChainID: req.ChainId, Time: req.Time}
-	ms := store.NewCommitMultiStore(a.db)
+
 	marshaler := codec.NewProtoCodec(interfaceRegistry)
 	txCfg := tx.NewTxConfig(marshaler, tx.DefaultSignModes)
-	fmt.Println("Genesis State", genesisState.GetGenTxs())
 	validators, err := genutil.InitGenesis(
 		sdktypes.NewContext(ms, initHeader, false, a.logger),
 		sk,
