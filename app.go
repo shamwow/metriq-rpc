@@ -26,6 +26,12 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
+var maccPerms = map[string][]string{
+	authtypes.FeeCollectorName:     nil,
+	stakingtypes.BondedPoolName:    {authtypes.Burner, authtypes.Staking},
+	stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
+}
+
 type MetriqRPCApp struct {
 	logger log.Logger
 	db     dbm.DB
@@ -84,7 +90,6 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 	tkeys := sdktypes.NewTransientStoreKeys(paramstypes.TStoreKey)
 	pk := paramskeeper.NewKeeper(appCodec, legacyCodec, keys[paramstypes.StoreKey], tkeys[paramstypes.TStoreKey])
 
-	maccPerms := make(map[string][]string)
 	blockedAddrs := make(map[string]bool)
 	for key := range maccPerms {
 		blockedAddrs[key] = true
