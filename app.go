@@ -92,7 +92,7 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 	ak := authkeeper.NewAccountKeeper(
 		appCodec,
 		keys[authtypes.StoreKey],
-		createAndGetSubspace(&pk, authtypes.ModuleName),
+		pk.Subspace(authtypes.ModuleName),
 		authtypes.ProtoBaseAccount,
 		maccPerms, // TODO: check this.
 	)
@@ -101,7 +101,7 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 		appCodec,
 		keys[banktypes.StoreKey],
 		ak,
-		createAndGetSubspace(&pk, banktypes.ModuleName),
+		pk.Subspace(banktypes.ModuleName),
 		blockedAddrs,
 	)
 	sk := stakingkeeper.NewKeeper(
@@ -109,7 +109,7 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 		keys[stakingtypes.StoreKey],
 		ak,
 		bk,
-		createAndGetSubspace(&pk, stakingtypes.ModuleName),
+		pk.Subspace(stakingtypes.ModuleName),
 	)
 	initHeader := tmproto.Header{ChainID: req.ChainId, Time: req.Time}
 	ms := store.NewCommitMultiStore(a.db)
@@ -129,12 +129,6 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 	return abcitypes.ResponseInitChain{
 		Validators: validators,
 	}
-}
-
-func createAndGetSubspace(pk *paramskeeper.Keeper, s string) paramstypes.Subspace {
-	pk.Subspace(s)
-	space, _ := pk.GetSubspace(stakingtypes.ModuleName)
-	return space
 }
 
 func (*MetriqRPCApp) BeginBlock(req abcitypes.RequestBeginBlock) abcitypes.ResponseBeginBlock {
