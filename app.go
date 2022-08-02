@@ -88,8 +88,7 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 
 	// Unmarshal genutils state.
 	var genesisState genutiltypes.GenesisState
-
-	if err := appCodec.Unmarshal(appState[genutiltypes.ModuleName], &genesisState); err != nil {
+	if err := appCodec.UnmarshalJSON(appState[genutiltypes.ModuleName], &genesisState); err != nil {
 		panic(fmt.Sprintf("%+v", errors.Wrap(err, "couldn't unmarshal genesisstate")))
 	}
 
