@@ -84,19 +84,25 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 	tkeys := sdktypes.NewTransientStoreKeys(paramstypes.TStoreKey)
 	pk := paramskeeper.NewKeeper(appCodec, legacyCodec, keys[paramstypes.StoreKey], tkeys[paramstypes.TStoreKey])
 
+	maccPerms := make(map[string][]string)
+	blockedAddrs := make(map[string]bool)
+	for key := range maccPerms {
+		blockedAddrs[key] = true
+	}
 	ak := authkeeper.NewAccountKeeper(
 		appCodec,
 		keys[authtypes.StoreKey],
 		getSubspace(&pk, authtypes.ModuleName),
 		authtypes.ProtoBaseAccount,
-		nil, // TODO: check this.
+		maccPerms, // TODO: check this.
 	)
+
 	bk := bankkeeper.NewBaseKeeper(
 		appCodec,
 		keys[banktypes.StoreKey],
 		ak,
 		getSubspace(&pk, banktypes.ModuleName),
-		nil, // keep in sync with macaddrs from above account keeper init.
+		blockedAddrs,
 	)
 	sk := stakingkeeper.NewKeeper(
 		appCodec,
