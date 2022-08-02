@@ -79,6 +79,10 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 	interfaceRegistry := types.NewInterfaceRegistry()
 	appCodec := codec.NewProtoCodec(interfaceRegistry)
 	legacyCodec := codec.NewLegacyAmino()
+	banktypes.RegisterInterfaces(interfaceRegistry)
+	authtypes.RegisterInterfaces(interfaceRegistry)
+	sdktypes.RegisterInterfaces(interfaceRegistry)
+	stakingtypes.RegisterInterfaces(interfaceRegistry)
 
 	// Unmarshal app state.
 	var appState map[string]json.RawMessage
@@ -91,8 +95,6 @@ func (a *MetriqRPCApp) InitChain(req abcitypes.RequestInitChain) abcitypes.Respo
 	if err := appCodec.UnmarshalJSON(appState[genutiltypes.ModuleName], &genesisState); err != nil {
 		panic(fmt.Sprintf("%+v", errors.Wrap(err, "couldn't unmarshal genesisstate")))
 	}
-
-	fmt.Println(genesisState)
 
 	keys := sdktypes.NewKVStoreKeys(
 		paramstypes.StoreKey, stakingtypes.StoreKey, authtypes.StoreKey, banktypes.StoreKey)
